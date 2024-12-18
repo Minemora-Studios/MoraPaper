@@ -1,0 +1,300 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Tehin <62246450+Tehin@users.noreply.github.com>
+Date: Wed, 18 Dec 2024 08:43:44 -0500
+Subject: [PATCH] Call Fake Entity Events
+
+
+diff --git a/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java b/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
+index 84fa24880d02dc7ba1ec8bda3575be38447fd4b2..e16ef82fd037e37ecb9ab12d26d72a9437ba89eb 100644
+--- a/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
++++ b/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
+@@ -2866,142 +2866,144 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+ 
+             this.player.resetLastActionTime();
+             this.player.setShiftKeyDown(packet.isUsingSecondaryAction());
+-            if (entity != null) {
+-                if (!worldserver.getWorldBorder().isWithinBounds(entity.blockPosition())) {
+-                    return;
+-                }
+-
+-                AABB axisalignedbb = entity.getBoundingBox();
+-
+-            if (this.player.canInteractWithEntity(axisalignedbb, io.papermc.paper.configuration.GlobalConfiguration.get().misc.clientInteractionLeniencyDistance.or(3.0D))) { // Paper - configurable lenience value for interact range
+-                    packet.dispatch(new ServerboundInteractPacket.Handler() {
+-                        private void performInteraction(InteractionHand enumhand, ServerGamePacketListenerImpl.EntityInteraction playerconnection_a, PlayerInteractEntityEvent event) { // CraftBukkit
+-                            ItemStack itemstack = ServerGamePacketListenerImpl.this.player.getItemInHand(enumhand);
+ 
+-                            if (itemstack.isItemEnabled(worldserver.enabledFeatures())) {
+-                                ItemStack itemstack1 = itemstack.copy();
+-                                // CraftBukkit start
+-                                ItemStack itemInHand = ServerGamePacketListenerImpl.this.player.getItemInHand(enumhand);
+-                                boolean triggerLeashUpdate = itemInHand != null && itemInHand.getItem() == Items.LEAD && entity instanceof Mob;
+-                                Item origItem = ServerGamePacketListenerImpl.this.player.getInventory().getSelected() == null ? null : ServerGamePacketListenerImpl.this.player.getInventory().getSelected().getItem();
+-
+-                                ServerGamePacketListenerImpl.this.cserver.getPluginManager().callEvent(event);
+-
+-                                // Entity in bucket - SPIGOT-4048 and SPIGOT-6859a
+-                                if ((entity instanceof Bucketable && entity instanceof LivingEntity && origItem != null && origItem.asItem() == Items.WATER_BUCKET) && (event.isCancelled() || ServerGamePacketListenerImpl.this.player.getInventory().getSelected() == null || ServerGamePacketListenerImpl.this.player.getInventory().getSelected().getItem() != origItem)) {
+-                                entity.resendPossiblyDesyncedEntityData(ServerGamePacketListenerImpl.this.player); // Paper - The entire mob gets deleted, so resend it
+-                                    ServerGamePacketListenerImpl.this.player.containerMenu.sendAllDataToRemote();
+-                                }
++            if (entity == null) {
++                packet.dispatch(new net.minecraft.network.protocol.game.ServerboundInteractPacket.Handler() {
++                    @Override
++                    public void onInteraction(net.minecraft.world.InteractionHand hand) {
++                        CraftEventFactory.callPlayerUseUnknownEntityEvent(ServerGamePacketListenerImpl.this.player, packet, hand, null);
++                        CraftEventFactory.callPlayerInteractFakeEntityEvent(ServerGamePacketListenerImpl.this.player, packet.getEntityId());
++                    }
+ 
+-                                if (triggerLeashUpdate && (event.isCancelled() || ServerGamePacketListenerImpl.this.player.getInventory().getSelected() == null || ServerGamePacketListenerImpl.this.player.getInventory().getSelected().getItem() != origItem)) {
+-                                    // Refresh the current leash state
+-                                    ServerGamePacketListenerImpl.this.send(new ClientboundSetEntityLinkPacket(entity, ((Mob) entity).getLeashHolder()));
+-                                }
++                    @Override
++                    public void onInteraction(net.minecraft.world.InteractionHand hand, net.minecraft.world.phys.Vec3 pos) {
++                        CraftEventFactory.callPlayerUseUnknownEntityEvent(ServerGamePacketListenerImpl.this.player, packet, hand, pos);
++                        CraftEventFactory.callPlayerInteractFakeEntityEvent(ServerGamePacketListenerImpl.this.player, packet.getEntityId());
++                    }
+ 
+-                                if (event.isCancelled() || ServerGamePacketListenerImpl.this.player.getInventory().getSelected() == null || ServerGamePacketListenerImpl.this.player.getInventory().getSelected().getItem() != origItem) {
+-                                    // Refresh the current entity metadata
+-                                    entity.refreshEntityData(ServerGamePacketListenerImpl.this.player);
+-                                    // SPIGOT-7136 - Allays
+-                                if (entity instanceof Allay || entity instanceof net.minecraft.world.entity.animal.horse.AbstractHorse) { // Paper - Fix horse armor desync
+-                                    ServerGamePacketListenerImpl.this.send(new ClientboundSetEquipmentPacket(entity.getId(), Arrays.stream(net.minecraft.world.entity.EquipmentSlot.values()).map((slot) -> Pair.of(slot, ((LivingEntity) entity).getItemBySlot(slot).copy())).collect(Collectors.toList()), true)); // Paper - sanitize
+-                                    }
++                    @Override
++                    public void onAttack() {
++                        CraftEventFactory.callPlayerUseUnknownEntityEvent(ServerGamePacketListenerImpl.this.player, packet, net.minecraft.world.InteractionHand.MAIN_HAND, null);
++                        CraftEventFactory.callPlayerAttackFakeEntityEvent(ServerGamePacketListenerImpl.this.player, packet.getEntityId());
++                    }
++                });
++                return;
++            }
+ 
+-                                ServerGamePacketListenerImpl.this.player.containerMenu.sendAllDataToRemote(); // Paper - fix slot desync - always refresh player inventory
+-                                }
++            if (!worldserver.getWorldBorder().isWithinBounds(entity.blockPosition())) {
++                return;
++            }
+ 
+-                                if (event.isCancelled()) {
+-                                    return;
+-                                }
+-                                // CraftBukkit end
+-                                InteractionResult enuminteractionresult = playerconnection_a.run(ServerGamePacketListenerImpl.this.player, entity, enumhand);
++            AABB axisalignedbb = entity.getBoundingBox();
+ 
+-                                // CraftBukkit start
+-                                if (!itemInHand.isEmpty() && itemInHand.getCount() <= -1) {
+-                                    ServerGamePacketListenerImpl.this.player.containerMenu.sendAllDataToRemote();
+-                                }
+-                                // CraftBukkit end
++            if (this.player.canInteractWithEntity(axisalignedbb, io.papermc.paper.configuration.GlobalConfiguration.get().misc.clientInteractionLeniencyDistance.or(3.0D))) { // Paper - configurable lenience value for interact range
++                packet.dispatch(new ServerboundInteractPacket.Handler() {
++                    private void performInteraction(InteractionHand enumhand, ServerGamePacketListenerImpl.EntityInteraction playerconnection_a, PlayerInteractEntityEvent event) { // CraftBukkit
++                        ItemStack itemstack = ServerGamePacketListenerImpl.this.player.getItemInHand(enumhand);
++
++                        if (itemstack.isItemEnabled(worldserver.enabledFeatures())) {
++                            ItemStack itemstack1 = itemstack.copy();
++                            // CraftBukkit start
++                            ItemStack itemInHand = ServerGamePacketListenerImpl.this.player.getItemInHand(enumhand);
++                            boolean triggerLeashUpdate = itemInHand != null && itemInHand.getItem() == Items.LEAD && entity instanceof Mob;
++                            Item origItem = ServerGamePacketListenerImpl.this.player.getInventory().getSelected() == null ? null : ServerGamePacketListenerImpl.this.player.getInventory().getSelected().getItem();
++
++                            ServerGamePacketListenerImpl.this.cserver.getPluginManager().callEvent(event);
++
++                            // Entity in bucket - SPIGOT-4048 and SPIGOT-6859a
++                            if ((entity instanceof Bucketable && entity instanceof LivingEntity && origItem != null && origItem.asItem() == Items.WATER_BUCKET) && (event.isCancelled() || ServerGamePacketListenerImpl.this.player.getInventory().getSelected() == null || ServerGamePacketListenerImpl.this.player.getInventory().getSelected().getItem() != origItem)) {
++                            entity.resendPossiblyDesyncedEntityData(ServerGamePacketListenerImpl.this.player); // Paper - The entire mob gets deleted, so resend it
++                                ServerGamePacketListenerImpl.this.player.containerMenu.sendAllDataToRemote();
++                            }
+ 
+-                                if (enuminteractionresult instanceof InteractionResult.Success) {
+-                                    InteractionResult.Success enuminteractionresult_d = (InteractionResult.Success) enuminteractionresult;
+-                                    ItemStack itemstack2 = enuminteractionresult_d.wasItemInteraction() ? itemstack1 : ItemStack.EMPTY;
++                            if (triggerLeashUpdate && (event.isCancelled() || ServerGamePacketListenerImpl.this.player.getInventory().getSelected() == null || ServerGamePacketListenerImpl.this.player.getInventory().getSelected().getItem() != origItem)) {
++                                // Refresh the current leash state
++                                ServerGamePacketListenerImpl.this.send(new ClientboundSetEntityLinkPacket(entity, ((Mob) entity).getLeashHolder()));
++                            }
+ 
+-                                    CriteriaTriggers.PLAYER_INTERACTED_WITH_ENTITY.trigger(ServerGamePacketListenerImpl.this.player, itemstack2, entity);
+-                                    if (enuminteractionresult_d.swingSource() == InteractionResult.SwingSource.SERVER) {
+-                                        ServerGamePacketListenerImpl.this.player.swing(enumhand, true);
+-                                    }
++                            if (event.isCancelled() || ServerGamePacketListenerImpl.this.player.getInventory().getSelected() == null || ServerGamePacketListenerImpl.this.player.getInventory().getSelected().getItem() != origItem) {
++                                // Refresh the current entity metadata
++                                entity.refreshEntityData(ServerGamePacketListenerImpl.this.player);
++                                // SPIGOT-7136 - Allays
++                            if (entity instanceof Allay || entity instanceof net.minecraft.world.entity.animal.horse.AbstractHorse) { // Paper - Fix horse armor desync
++                                ServerGamePacketListenerImpl.this.send(new ClientboundSetEquipmentPacket(entity.getId(), Arrays.stream(net.minecraft.world.entity.EquipmentSlot.values()).map((slot) -> Pair.of(slot, ((LivingEntity) entity).getItemBySlot(slot).copy())).collect(Collectors.toList()), true)); // Paper - sanitize
+                                 }
+ 
++                            ServerGamePacketListenerImpl.this.player.containerMenu.sendAllDataToRemote(); // Paper - fix slot desync - always refresh player inventory
+                             }
+-                        }
+-
+-                        @Override
+-                        public void onInteraction(InteractionHand hand) {
+-                            this.performInteraction(hand, net.minecraft.world.entity.player.Player::interactOn, new PlayerInteractEntityEvent(ServerGamePacketListenerImpl.this.getCraftPlayer(), entity.getBukkitEntity(), (hand == InteractionHand.OFF_HAND) ? EquipmentSlot.OFF_HAND : EquipmentSlot.HAND)); // CraftBukkit
+-                        }
+-
+-                        @Override
+-                        public void onInteraction(InteractionHand hand, Vec3 pos) {
+-                            this.performInteraction(hand, (entityplayer, entity1, enumhand1) -> {
+-                                return entity1.interactAt(entityplayer, pos, enumhand1);
+-                            }, new PlayerInteractAtEntityEvent(ServerGamePacketListenerImpl.this.getCraftPlayer(), entity.getBukkitEntity(), new org.bukkit.util.Vector(pos.x, pos.y, pos.z), (hand == InteractionHand.OFF_HAND) ? EquipmentSlot.OFF_HAND : EquipmentSlot.HAND)); // CraftBukkit
+-                        }
+ 
+-                        @Override
+-                        public void onAttack() {
+-                            // CraftBukkit
+-                            if (!(entity instanceof ItemEntity) && !(entity instanceof ExperienceOrb) && (entity != ServerGamePacketListenerImpl.this.player || ServerGamePacketListenerImpl.this.player.isSpectator())) {
+-                                label23:
+-                                {
+-                                    if (entity instanceof AbstractArrow) {
+-                                        AbstractArrow entityarrow = (AbstractArrow) entity;
+-
+-                                        if (!entityarrow.isAttackable()) {
+-                                            break label23;
+-                                        }
+-                                    }
++                            if (event.isCancelled()) {
++                                return;
++                            }
++                            // CraftBukkit end
++                            InteractionResult enuminteractionresult = playerconnection_a.run(ServerGamePacketListenerImpl.this.player, entity, enumhand);
+ 
+-                                    ItemStack itemstack = ServerGamePacketListenerImpl.this.player.getItemInHand(InteractionHand.MAIN_HAND);
++                            // CraftBukkit start
++                            if (!itemInHand.isEmpty() && itemInHand.getCount() <= -1) {
++                                ServerGamePacketListenerImpl.this.player.containerMenu.sendAllDataToRemote();
++                            }
++                            // CraftBukkit end
+ 
+-                                    if (!itemstack.isItemEnabled(worldserver.enabledFeatures())) {
+-                                        return;
+-                                    }
++                            if (enuminteractionresult instanceof InteractionResult.Success) {
++                                InteractionResult.Success enuminteractionresult_d = (InteractionResult.Success) enuminteractionresult;
++                                ItemStack itemstack2 = enuminteractionresult_d.wasItemInteraction() ? itemstack1 : ItemStack.EMPTY;
+ 
+-                                    ServerGamePacketListenerImpl.this.player.attack(entity);
+-                                    // CraftBukkit start
+-                                    if (!itemstack.isEmpty() && itemstack.getCount() <= -1) {
+-                                        ServerGamePacketListenerImpl.this.player.containerMenu.sendAllDataToRemote();
+-                                    }
+-                                    // CraftBukkit end
+-                                    return;
++                                CriteriaTriggers.PLAYER_INTERACTED_WITH_ENTITY.trigger(ServerGamePacketListenerImpl.this.player, itemstack2, entity);
++                                if (enuminteractionresult_d.swingSource() == InteractionResult.SwingSource.SERVER) {
++                                    ServerGamePacketListenerImpl.this.player.swing(enumhand, true);
+                                 }
+                             }
+ 
+-                            ServerGamePacketListenerImpl.this.disconnect((Component) Component.translatable("multiplayer.disconnect.invalid_entity_attacked"), org.bukkit.event.player.PlayerKickEvent.Cause.INVALID_ENTITY_ATTACKED); // Paper - add cause
+-                            ServerGamePacketListenerImpl.LOGGER.warn("Player {} tried to attack an invalid entity", ServerGamePacketListenerImpl.this.player.getName().getString());
+                         }
+-                    });
+-                }
+-            }
+-            // Paper start - PlayerUseUnknownEntityEvent
+-            else {
+-                packet.dispatch(new net.minecraft.network.protocol.game.ServerboundInteractPacket.Handler() {
++                    }
++
+                     @Override
+-                    public void onInteraction(net.minecraft.world.InteractionHand hand) {
+-                        CraftEventFactory.callPlayerUseUnknownEntityEvent(ServerGamePacketListenerImpl.this.player, packet, hand, null);
++                    public void onInteraction(InteractionHand hand) {
++                        this.performInteraction(hand, net.minecraft.world.entity.player.Player::interactOn, new PlayerInteractEntityEvent(ServerGamePacketListenerImpl.this.getCraftPlayer(), entity.getBukkitEntity(), (hand == InteractionHand.OFF_HAND) ? EquipmentSlot.OFF_HAND : EquipmentSlot.HAND)); // CraftBukkit
+                     }
+ 
+                     @Override
+-                    public void onInteraction(net.minecraft.world.InteractionHand hand, net.minecraft.world.phys.Vec3 pos) {
+-                        CraftEventFactory.callPlayerUseUnknownEntityEvent(ServerGamePacketListenerImpl.this.player, packet, hand, pos);
++                    public void onInteraction(InteractionHand hand, Vec3 pos) {
++                        this.performInteraction(hand, (entityplayer, entity1, enumhand1) -> {
++                            return entity1.interactAt(entityplayer, pos, enumhand1);
++                        }, new PlayerInteractAtEntityEvent(ServerGamePacketListenerImpl.this.getCraftPlayer(), entity.getBukkitEntity(), new org.bukkit.util.Vector(pos.x, pos.y, pos.z), (hand == InteractionHand.OFF_HAND) ? EquipmentSlot.OFF_HAND : EquipmentSlot.HAND)); // CraftBukkit
+                     }
+ 
+                     @Override
+                     public void onAttack() {
+-                        CraftEventFactory.callPlayerUseUnknownEntityEvent(ServerGamePacketListenerImpl.this.player, packet, net.minecraft.world.InteractionHand.MAIN_HAND, null);
++                        // CraftBukkit
++                        if (!(entity instanceof ItemEntity) && !(entity instanceof ExperienceOrb) && (entity != ServerGamePacketListenerImpl.this.player || ServerGamePacketListenerImpl.this.player.isSpectator())) {
++                            label23:
++                            {
++                                if (entity instanceof AbstractArrow) {
++                                    AbstractArrow entityarrow = (AbstractArrow) entity;
++
++                                    if (!entityarrow.isAttackable()) {
++                                        break label23;
++                                    }
++                                }
++
++                                ItemStack itemstack = ServerGamePacketListenerImpl.this.player.getItemInHand(InteractionHand.MAIN_HAND);
++
++                                if (!itemstack.isItemEnabled(worldserver.enabledFeatures())) {
++                                    return;
++                                }
++
++                                ServerGamePacketListenerImpl.this.player.attack(entity);
++                                // CraftBukkit start
++                                if (!itemstack.isEmpty() && itemstack.getCount() <= -1) {
++                                    ServerGamePacketListenerImpl.this.player.containerMenu.sendAllDataToRemote();
++                                }
++                                // CraftBukkit end
++                                return;
++                            }
++                        }
++
++                        ServerGamePacketListenerImpl.this.disconnect((Component) Component.translatable("multiplayer.disconnect.invalid_entity_attacked"), org.bukkit.event.player.PlayerKickEvent.Cause.INVALID_ENTITY_ATTACKED); // Paper - add cause
++                        ServerGamePacketListenerImpl.LOGGER.warn("Player {} tried to attack an invalid entity", ServerGamePacketListenerImpl.this.player.getName().getString());
+                     }
+                 });
+             }
+-            // Paper end - PlayerUseUnknownEntityEvent
+         }
+     }
+ 
+diff --git a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+index e37aaf77f94b97b736cc20ef070cefdff0400188..f9bfd680de7121fb46b24f3daed407733c77061c 100644
+--- a/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
++++ b/src/main/java/org/bukkit/craftbukkit/event/CraftEventFactory.java
+@@ -213,6 +213,7 @@ import org.bukkit.event.inventory.PrepareGrindstoneEvent;
+ import org.bukkit.event.inventory.PrepareItemCraftEvent;
+ import org.bukkit.event.inventory.PrepareSmithingEvent;
+ import org.bukkit.event.inventory.TradeSelectEvent;
++import org.bukkit.event.player.PlayerAttackFakeEntityEvent;
+ import org.bukkit.event.player.PlayerBedEnterEvent;
+ import org.bukkit.event.player.PlayerBedEnterEvent.BedEnterResult;
+ import org.bukkit.event.player.PlayerBucketEmptyEvent;
+@@ -225,6 +226,7 @@ import org.bukkit.event.player.PlayerExpChangeEvent;
+ import org.bukkit.event.player.PlayerExpCooldownChangeEvent;
+ import org.bukkit.event.player.PlayerHarvestBlockEvent;
+ import org.bukkit.event.player.PlayerInteractEvent;
++import org.bukkit.event.player.PlayerInteractFakeEntityEvent;
+ import org.bukkit.event.player.PlayerItemBreakEvent;
+ import org.bukkit.event.player.PlayerItemMendEvent;
+ import org.bukkit.event.player.PlayerLevelChangeEvent;
+@@ -2198,6 +2200,18 @@ public class CraftEventFactory {
+     }
+     // Paper end - PlayerUseUnknownEntityEvent
+ 
++    // Mora start - PlayerInteractEntityEvent
++    public static void callPlayerInteractFakeEntityEvent(net.minecraft.world.entity.player.Player player, int entityId) {
++        new PlayerInteractFakeEntityEvent((Player) player.getBukkitEntity(), entityId).callEvent();
++    }
++    // Mora end
++
++    // Mora start - PlayerInteractEntityEvent
++    public static void callPlayerAttackFakeEntityEvent(net.minecraft.world.entity.player.Player player, int entityId) {
++        new PlayerAttackFakeEntityEvent((Player) player.getBukkitEntity(), entityId).callEvent();
++    }
++    // Mora end
++
+     // Paper start - WitchReadyPotionEvent
+     public static ItemStack handleWitchReadyPotionEvent(net.minecraft.world.entity.monster.Witch witch, @Nullable ItemStack potion) {
+         com.destroystokyo.paper.event.entity.WitchReadyPotionEvent event = new com.destroystokyo.paper.event.entity.WitchReadyPotionEvent((org.bukkit.entity.Witch) witch.getBukkitEntity(), CraftItemStack.asCraftMirror(potion));
