@@ -1,0 +1,92 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Elecast <diegocastellano08@gmail.com>
+Date: Wed, 18 Dec 2024 01:53:48 -0300
+Subject: [PATCH] Not called fake entity events
+
+
+diff --git a/src/main/java/org/bukkit/event/player/PlayerAttackFakeEntityEvent.java b/src/main/java/org/bukkit/event/player/PlayerAttackFakeEntityEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..99fd9ef6d3981ef4abc1967d9e182a77eed2f1e4
+--- /dev/null
++++ b/src/main/java/org/bukkit/event/player/PlayerAttackFakeEntityEvent.java
+@@ -0,0 +1,37 @@
++package org.bukkit.event.player;
++
++import org.bukkit.entity.Player;
++import org.bukkit.event.Event;
++import org.bukkit.event.HandlerList;
++
++/**
++ * Represents an event that is called when a player right-clicks an entity
++ * that does not exist
++ */
++public class PlayerAttackFakeEntityEvent extends Event {
++    private static final HandlerList handlers = new HandlerList();
++
++    private final Player player;
++    private final int id;
++
++    public PlayerAttackFakeEntityEvent(Player player, int id) {
++        this.player = player;
++        this.id = id;
++    }
++
++    public Player getPlayer() {
++        return player;
++    }
++
++    public int getId() {
++        return id;
++    }
++
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
+diff --git a/src/main/java/org/bukkit/event/player/PlayerInteractFakeEntityEvent.java b/src/main/java/org/bukkit/event/player/PlayerInteractFakeEntityEvent.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..7c0c67ffd9b3bf2dc508da5f8397dc0952754918
+--- /dev/null
++++ b/src/main/java/org/bukkit/event/player/PlayerInteractFakeEntityEvent.java
+@@ -0,0 +1,37 @@
++package org.bukkit.event.player;
++
++import org.bukkit.entity.Player;
++import org.bukkit.event.Event;
++import org.bukkit.event.HandlerList;
++
++/**
++ * Represents an event that is called when a player right-clicks an entity
++ * that does not exist
++ */
++public class PlayerInteractFakeEntityEvent extends Event {
++    private static final HandlerList handlers = new HandlerList();
++
++    private final Player player;
++    private final int id;
++
++    public PlayerInteractFakeEntityEvent(Player player, int id) {
++        this.player = player;
++        this.id = id;
++    }
++
++    public Player getPlayer() {
++        return player;
++    }
++
++    public int getId() {
++        return id;
++    }
++
++    public HandlerList getHandlers() {
++        return handlers;
++    }
++
++    public static HandlerList getHandlerList() {
++        return handlers;
++    }
++}
