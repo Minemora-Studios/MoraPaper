@@ -1,0 +1,129 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Elecast <diegocastellano08@gmail.com>
+Date: Tue, 17 Dec 2024 23:19:09 -0300
+Subject: [PATCH] CustomSynchedEntityData
+
+
+diff --git a/src/main/java/net/minecraft/network/syncher/CustomSynchedEntityData.java b/src/main/java/net/minecraft/network/syncher/CustomSynchedEntityData.java
+new file mode 100644
+index 0000000000000000000000000000000000000000..66494e743d7aed319462a222cb93be4f73a04cbc
+--- /dev/null
++++ b/src/main/java/net/minecraft/network/syncher/CustomSynchedEntityData.java
+@@ -0,0 +1,104 @@
++package net.minecraft.network.syncher;
++
++import net.minecraft.network.chat.Component;
++import net.minecraft.world.entity.Entity;
++import org.apache.commons.lang3.ObjectUtils;
++import javax.annotation.Nullable;
++import java.util.Optional;
++
++public class CustomSynchedEntityData extends SynchedEntityData {
++
++    CustomSynchedEntityData(final DataItem<?>[] entries) {
++        super(null, entries);
++    }
++
++    public static CustomSynchedEntityData create(Class<?> entityClass, final DataItem<?>[] entries) {
++
++        CustomSynchedEntityData.Builder builder = new CustomSynchedEntityData.Builder(entityClass);
++
++        builder.define(SynchedEntityData.defineId(Entity.class, EntityDataSerializers.BYTE), (byte) 0);
++        builder.define(SynchedEntityData.defineId(Entity.class, EntityDataSerializers.INT), 10);
++        builder.define(SynchedEntityData.defineId(Entity.class, EntityDataSerializers.BOOLEAN), false);
++        builder.define(SynchedEntityData.defineId(Entity.class, EntityDataSerializers.OPTIONAL_COMPONENT), Optional.empty());
++        builder.define(SynchedEntityData.defineId(Entity.class, EntityDataSerializers.BOOLEAN), false);
++        builder.define(SynchedEntityData.defineId(Entity.class, EntityDataSerializers.BOOLEAN), false);
++        builder.define(SynchedEntityData.defineId(Entity.class, EntityDataSerializers.POSE), net.minecraft.world.entity.Pose.STANDING);
++        builder.define(SynchedEntityData.defineId(Entity.class, EntityDataSerializers.INT), 0);
++
++        return builder.build();
++    }
++
++    public void setCustomNameVisible(boolean visible) {
++        this.set(SynchedEntityData.defineId(Entity.class, EntityDataSerializers.BOOLEAN), visible);
++    }
++
++    public void setCustomName(@Nullable Component name) {
++        this.set(SynchedEntityData.defineId(Entity.class, EntityDataSerializers.OPTIONAL_COMPONENT), Optional.ofNullable(name));
++    }
++
++    public void setInvisible(boolean invisible) {
++        this.setSharedFlag(5, invisible);
++    }
++
++    public void setSharedFlag(int index, boolean value) {
++        byte b0 = (Byte) this.get(SynchedEntityData.defineId(Entity.class, EntityDataSerializers.BYTE));
++
++        if (value) {
++            this.set(SynchedEntityData.defineId(Entity.class, EntityDataSerializers.BYTE), (byte) (b0 | 1 << index));
++        } else {
++            this.set(SynchedEntityData.defineId(Entity.class, EntityDataSerializers.BYTE), (byte) (b0 & ~(1 << index)));
++        }
++    }
++
++    @Override
++    public <T> void set(EntityDataAccessor<T> key, T value, boolean force) {
++        SynchedEntityData.DataItem<T> datawatcher_item = this.getItem(key);
++
++        if (force || ObjectUtils.notEqual(value, datawatcher_item.getValue())) {
++            datawatcher_item.setValue(value);
++            datawatcher_item.setDirty(true);
++            this.isDirty = true;
++        }
++    }
++
++    public static class Builder {
++
++        private final SynchedEntityData.DataItem<?>[] itemsById;
++        private final Class<?> entityClass;
++
++        public Builder(Class<?> entityClass) {
++            this.entityClass = entityClass;
++            this.itemsById = new SynchedEntityData.DataItem[SynchedEntityData.ID_REGISTRY.getCount(entityClass)];
++        }
++
++        public <T> CustomSynchedEntityData.Builder define(EntityDataAccessor<T> data, T value) {
++            int i = data.id();
++
++            if (i > this.itemsById.length) {
++                throw new IllegalArgumentException("Data value id is too big with " + i + "! (Max is " + this.itemsById.length + ")");
++            } else if (this.itemsById[i] != null) {
++                throw new IllegalArgumentException("Duplicate id value for " + i + "!");
++            } else if (EntityDataSerializers.getSerializedId(data.serializer()) < 0) {
++                String s = String.valueOf(data.serializer());
++
++                throw new IllegalArgumentException("Unregistered serializer " + s + " for " + i + "!");
++            } else {
++                this.itemsById[data.id()] = new SynchedEntityData.DataItem<>(data, value);
++                return this;
++            }
++        }
++
++        public CustomSynchedEntityData build() {
++            for (int i = 0; i < this.itemsById.length; ++i) {
++                if (this.itemsById[i] == null) {
++                    String s = String.valueOf(this.entityClass);
++
++                    throw new IllegalStateException("Entity " + s + " has not defined synched data value " + i);
++                }
++            }
++
++            return new CustomSynchedEntityData(this.itemsById);
++        }
++    }
++
++}
+diff --git a/src/main/java/net/minecraft/network/syncher/SynchedEntityData.java b/src/main/java/net/minecraft/network/syncher/SynchedEntityData.java
+index 0f99733660f91280e4c6262cf75b3c9cae86f65a..bcaeb452089e948840161cef00d84fdfd20f8a3d 100644
+--- a/src/main/java/net/minecraft/network/syncher/SynchedEntityData.java
++++ b/src/main/java/net/minecraft/network/syncher/SynchedEntityData.java
+@@ -21,7 +21,7 @@ public class SynchedEntityData {
+     static final ClassTreeIdRegistry ID_REGISTRY = new ClassTreeIdRegistry();
+     private final SyncedDataHolder entity;
+     private final SynchedEntityData.DataItem<?>[] itemsById;
+-    private boolean isDirty;
++    public boolean isDirty;
+ 
+     SynchedEntityData(SyncedDataHolder trackedEntity, SynchedEntityData.DataItem<?>[] entries) {
+         this.entity = trackedEntity;
