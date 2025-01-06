@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Elecast <diegocastellano08@gmail.com>
+Date: Mon, 6 Jan 2025 19:01:47 -0300
+Subject: [PATCH] Only send if main hand
+
+
+diff --git a/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java b/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
+index e16ef82fd037e37ecb9ab12d26d72a9437ba89eb..0cb47d41ff3971200f20576b144b33b9a175848f 100644
+--- a/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
++++ b/src/main/java/net/minecraft/server/network/ServerGamePacketListenerImpl.java
+@@ -2872,13 +2872,14 @@ public class ServerGamePacketListenerImpl extends ServerCommonPacketListenerImpl
+                     @Override
+                     public void onInteraction(net.minecraft.world.InteractionHand hand) {
+                         CraftEventFactory.callPlayerUseUnknownEntityEvent(ServerGamePacketListenerImpl.this.player, packet, hand, null);
+-                        CraftEventFactory.callPlayerInteractFakeEntityEvent(ServerGamePacketListenerImpl.this.player, packet.getEntityId());
+                     }
+ 
+                     @Override
+                     public void onInteraction(net.minecraft.world.InteractionHand hand, net.minecraft.world.phys.Vec3 pos) {
+                         CraftEventFactory.callPlayerUseUnknownEntityEvent(ServerGamePacketListenerImpl.this.player, packet, hand, pos);
+-                        CraftEventFactory.callPlayerInteractFakeEntityEvent(ServerGamePacketListenerImpl.this.player, packet.getEntityId());
++                        if(hand == InteractionHand.MAIN_HAND) {
++                            CraftEventFactory.callPlayerInteractFakeEntityEvent(ServerGamePacketListenerImpl.this.player, packet.getEntityId());
++                        }
+                     }
+ 
+                     @Override
